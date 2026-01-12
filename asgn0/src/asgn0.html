@@ -2,10 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Draw a blue rectangle (canvas version)</title>
+    <title>Vector Visualizer</title>
+    <style>
+      /* Simple header styling - edit the content below to include your own info */
+      #authorInfo {
+        background: #222;
+        color: #fff;
+        padding: 10px 16px;
+        font-family: Arial, Helvetica, sans-serif;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      #authorInfo .meta { font-size: 14px; }
+      #authorInfo .meta b { display:block; font-size:16px; }
+    </style>
   </head>
 
   <body onload="main()">
+    <!-- Edit the content inside #authorInfo to put your real name, email, and other details -->
+    <header id="authorInfo">
+      <div class="meta">
+        <b>Rohit Mandal</b>
+        <div>rkmandal@ucsc.edu</div>
+      </div>
+      <div class="meta">
+        <b>Course</b>
+        <div>CSE-160 — Assignment 0</div>
+      </div>
+      <div class="meta">
+        <b>Other:</b>
+        <div></div>
+      </div>
+    </header>
+
     <canvas id="example" width="400" height="400">
       Please use a browser that supports "canvas"
     </canvas>
