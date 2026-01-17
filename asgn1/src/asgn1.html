@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Asgn1 - Shape Brush</title>
+  <link rel="stylesheet" href="asgn1.css">
+</head>
+<body>
+  <h1>Shape Brush</h1>
+  <div class="app">
+    <div class="controls">
+      <div class="group">
+        <label>Brush</label>
+        <div class="btns">
+          <button id="brush-point" class="brush-btn active">Square</button>
+          <button id="brush-circle" class="brush-btn">Circle</button>
+          <button id="brush-triangle" class="brush-btn">Triangle</button>
+        </div>
+        <label class="chalk-toggle"><input id="chalkToggle" type="checkbox"> Chalk</label>
+      </div>
+
+      <div class="group">
+        <label for="size">Size <span id="sizeVal">24</span></label>
+        <input id="size" type="range" min="2" max="120" value="24">
+      </div>
+
+      <div class="group">
+        <label for="segments">Circle segments <span id="segVal">24</span></label>
+        <input id="segments" type="range" min="3" max="64" value="24">
+      </div>
+
+      <div class="group">
+        <label>Color</label>
+        <div class="color-sliders">
+          <label>R <input id="r" type="range" min="0" max="255" value="50"></label>
+          <label>G <input id="g" type="range" min="0" max="255" value="120"></label>
+          <label>B <input id="b" type="range" min="0" max="255" value="200"></label>
+          <label>Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="1"></label>
+        </div>
+        <div class="preview-row">
+          <div id="colorPreview" class="color-preview" title="Current brush color"></div>
+          <div class="hints">Tip: Use Ctrl+Z to undo</div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button id="clear">Clear Canvas</button>
+        <button id="undo">Undo</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="draw-canvas" width="900" height="600"></canvas>
+    </div>
+  </div>
+
+  <script src="asgn1.js"></script>
+</body>
+</html>
