@@ -16,6 +16,46 @@ body{font-family:Segoe UI,Roboto,Arial;margin:16px;color:#222}
 .canvas-wrap{flex:1}
 canvas{background:white;border:1px solid #ccc;border-radius:4px;display:block}
 
+/* Reference image section */
+.reference-section{
+  margin-top:20px;
+  padding:16px;
+  background:#f0f4f8;
+  border-radius:8px;
+  border:2px solid #0b69ff;
+}
+.reference-section h3{
+  margin:0 0 12px 0;
+  color:#0b69ff;
+}
+.reference-container{
+  display:flex;
+  gap:20px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+.reference-item{
+  flex:1;
+  min-width:250px;
+}
+.reference-item p{
+  margin:0 0 8px 0;
+  font-weight:600;
+}
+.reference-item img{
+  max-width:100%;
+  height:auto;
+  border:1px solid #ccc;
+  border-radius:4px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+.reference-item .description{
+  font-weight:400;
+  color:#555;
+  font-size:14px;
+  line-height:1.5;
+}
+
 /* small responsive improvements */
 @media (max-width:700px){
 	.app{flex-direction:column}

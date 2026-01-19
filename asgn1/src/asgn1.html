@@ -47,11 +47,27 @@
       <div class="group">
         <button id="clear">Clear Canvas</button>
         <button id="undo">Undo</button>
+        <button id="drawPicture">Draw Picture</button>
       </div>
     </div>
 
     <div class="canvas-wrap">
       <canvas id="draw-canvas" width="900" height="600"></canvas>
+    </div>
+    
+    <!-- Reference Image Section (shown when Draw Picture is clicked) -->
+    <div id="reference-section" class="reference-section" style="display: none;">
+      <h3>Reference Image (Original Drawing)</h3>
+      <div class="reference-container">
+        <div class="reference-item">
+          <p>Original Hand-Drawn Sketch:</p>
+          <img id="reference-image" src="RMfish.png" alt="Original fish drawing with RM initials">
+        </div>
+        <div class="reference-item">
+          <p>WebGL Recreation (above):</p>
+          <p class="description">The canvas above shows the WebGL recreation of the original drawing using triangles and geometric shapes.</p>
+        </div>
+      </div>
     </div>
   </div>
 
