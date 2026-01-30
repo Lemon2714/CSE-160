@@ -1,1 +1,1 @@
-test
+Added functionality for opacity, chalk brush, and an undo button for the painting canvas. Created a better canvas interface to account for fast moving strokes so that there are no gaps. Also a color preivew for convenience for the user. 
