@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>asgn2 - Peacock</title>
+  <style>
+    body { background: #222; color: #ddd; font-family: sans-serif; }
+    #controls { margin: 8px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .slider-group { 
+      background: #333; 
+      padding: 8px 12px; 
+      border-radius: 6px;
+      min-width: 200px;
+    }
+    .slider-group label { display: block; margin-bottom: 4px; font-size: 12px; }
+    .slider-group input { width: 100%; }
+    h3 { margin: 4px 0; color: #7af; font-size: 14px; }
+    #animationBtn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #4a4;
+      color: white;
+    }
+    #animationBtn:hover { opacity: 0.9; }
+    #fpsDisplay {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #0f0;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    #canvasContainer {
+      position: relative;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body onload="initCubeDemo('glCanvas')">
+  <div id="controls">
+    <div class="slider-group">
+      <h3>Animation</h3>
+      <button id="animationBtn">Start Animation</button>
+    </div>
+    
+    <div class="slider-group">
+      <h3>Camera</h3>
+      <label>Global Rotation: <input id="rotSlider" type="range" min="-180" max="180" step="1" value="0"></label>
+    </div>
+    
+    <div class="slider-group">
+      <h3>Neck Chain</h3>
+      <label>Neck Base: <input id="neckBaseSlider" type="range" min="-60" max="30" step="1" value="-20"></label>
+      <label>Neck Mid: <input id="neckMidSlider" type="range" min="-30" max="45" step="1" value="10"></label>
+    </div>
+    
+    <div class="slider-group">
+      <h3>Left Leg</h3>
+      <label>Upper Leg: <input id="leftUpperLegSlider" type="range" min="-45" max="60" step="1" value="10"></label>
+      <label>Lower Leg (Knee): <input id="leftLowerLegSlider" type="range" min="0" max="90" step="1" value="15"></label>
+    </div>
+    
+    <div class="slider-group">
+      <h3>Right Leg</h3>
+      <label>Upper Leg: <input id="rightUpperLegSlider" type="range" min="-45" max="60" step="1" value="10"></label>
+      <label>Lower Leg (Knee): <input id="rightLowerLegSlider" type="range" min="0" max="90" step="1" value="15"></label>
+    </div>
+  </div>
+  <div id="canvasContainer">
+    <canvas id="glCanvas" width="640" height="480" style="border:1px solid #444"></canvas>
+    <div id="fpsDisplay">FPS: --</div>
+  </div>
+
+  <!-- Matrix library reused from asgn0 (relative path) -->
+  <script src="../../asgn0/src/lib/cuon-matrix-cse160.js"></script>
+  <script src="asgn2.js"></script>
+</body>
+</html>
