@@ -289,15 +289,6 @@ function drawCube(gl, program, M, color, cubeBuffers) {
 
 window.drawCube = drawCube;
 
-// Example test snippets (use in your render loop):
-// const M = new Matrix4();          // if using cuon-matrix-cse160.js
-// M.setTranslate(0.5, 0.0, -2.0);
-// drawCube(gl, shaderProgram, M);
-// // rotate example
-// const R = new Matrix4();
-// R.setRotate(45, 0, 1, 0).translate(0.0, 0.0, -3.0);
-// drawCube(gl, shaderProgram, R);
-
 // Global rotation angle (degrees) controlled by slider
 window.gAnimalGlobalRotation = 0.0;
 
