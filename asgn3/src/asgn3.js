@@ -3,16 +3,20 @@
 // A first-person exploration of a 32x32x4 voxel world
 // ============================================================
 
-// ---- Shader sources ----
+// ---- Shader sources (with distance fog) ----
 const VSHADER_SOURCE = `
   attribute vec4 a_Position;
   attribute vec2 a_TexCoord;
   uniform mat4 u_ViewProjMatrix;
   uniform mat4 u_ModelMatrix;
+  uniform vec3 u_EyePos;
   varying vec2 v_TexCoord;
+  varying float v_Dist;
   void main() {
-    gl_Position = u_ViewProjMatrix * u_ModelMatrix * a_Position;
+    vec4 worldPos = u_ModelMatrix * a_Position;
+    gl_Position = u_ViewProjMatrix * worldPos;
     v_TexCoord = a_TexCoord;
+    v_Dist = distance(worldPos.xyz, u_EyePos);
   }
 `;
 
@@ -21,28 +25,43 @@ const FSHADER_SOURCE = `
   uniform sampler2D u_Sampler;
   uniform float u_TexColorWeight;   // 1.0 = texture, 0.0 = solid color
   uniform vec4 u_Color;
+  uniform vec3 u_FogColor;
+  uniform float u_FogNear;
+  uniform float u_FogFar;
   varying vec2 v_TexCoord;
+  varying float v_Dist;
   void main() {
     vec4 texColor = texture2D(u_Sampler, v_TexCoord);
-    gl_FragColor = mix(u_Color, texColor, u_TexColorWeight);
+    vec4 baseColor = mix(u_Color, texColor, u_TexColorWeight);
+    float fogFactor = clamp((u_FogFar - v_Dist) / (u_FogFar - u_FogNear), 0.0, 1.0);
+    gl_FragColor = vec4(mix(u_FogColor, baseColor.rgb, fogFactor), baseColor.a);
   }
 `;
 
-// ---- Solid-color shader for the peacock animal ----
+// ---- Solid-color shader for the peacock animal (with fog) ----
 const PEACOCK_VS = `
   attribute vec4 a_Position;
   uniform mat4 u_ViewProjMatrix;
   uniform mat4 u_ModelMatrix;
+  uniform vec3 u_EyePos;
+  varying float v_Dist;
   void main() {
-    gl_Position = u_ViewProjMatrix * u_ModelMatrix * a_Position;
+    vec4 worldPos = u_ModelMatrix * a_Position;
+    gl_Position = u_ViewProjMatrix * worldPos;
+    v_Dist = distance(worldPos.xyz, u_EyePos);
   }
 `;
 
 const PEACOCK_FS = `
   precision mediump float;
   uniform vec4 u_Color;
+  uniform vec3 u_FogColor;
+  uniform float u_FogNear;
+  uniform float u_FogFar;
+  varying float v_Dist;
   void main() {
-    gl_FragColor = u_Color;
+    float fogFactor = clamp((u_FogFar - v_Dist) / (u_FogFar - u_FogNear), 0.0, 1.0);
+    gl_FragColor = vec4(mix(u_FogColor, u_Color.rgb, fogFactor), u_Color.a);
   }
 `;
 
@@ -50,10 +69,12 @@ const PEACOCK_FS = `
 let gl, canvas;
 let program;
 let u_ViewProjMatrix, u_ModelMatrix, u_Sampler, u_TexColorWeight, u_Color;
+let u_EyePos, u_FogColor, u_FogNear, u_FogFar;
 
 // Peacock shader program + uniform locations
 let peacockProgram;
 let pu_ViewProjMatrix, pu_ModelMatrix, pu_Color;
+let pu_EyePos, pu_FogColor, pu_FogNear, pu_FogFar;
 
 // Peacock geometry buffers (centered at origin, like asgn2)
 let peacockCubeBuffers, peacockConeBuffers;
@@ -64,6 +85,129 @@ let camera;
 // FPS tracking
 let lastFPSTime = 0;
 let frameCount = 0;
+
+// Day/night cycle
+let dayTime = 0;           // 0..1 where 0=noon, 0.5=midnight
+const DAY_CYCLE_SPEED = 0.015;  // full cycle in ~67 seconds
+
+function getSkyColor(t) {
+  // t: 0=noon, 0.25=sunset, 0.5=midnight, 0.75=sunrise
+  // Noon: bright blue, Sunset: orange, Night: dark blue, Sunrise: pink
+  const noon    = [0.53, 0.81, 0.92];
+  const sunset  = [0.95, 0.55, 0.25];
+  const night   = [0.05, 0.05, 0.15];
+  const sunrise = [0.90, 0.50, 0.55];
+
+  function lerp3(a, b, f) {
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+  }
+
+  if (t < 0.25)      return lerp3(noon, sunset, t / 0.25);
+  else if (t < 0.5)  return lerp3(sunset, night, (t - 0.25) / 0.25);
+  else if (t < 0.75) return lerp3(night, sunrise, (t - 0.5) / 0.25);
+  else               return lerp3(sunrise, noon, (t - 0.75) / 0.25);
+}
+
+// Terrain heightmap
+let terrainVBO, terrainIBO, terrainIndexCount;
+const TERRAIN_SIZE = 32;
+const TERRAIN_RES  = 64;  // vertices per side (higher = smoother hills)
+
+// Simple value noise for terrain generation
+function pseudoNoise(x, z) {
+  // Hash-based pseudo-random
+  let n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function smoothNoise(x, z) {
+  const ix = Math.floor(x), iz = Math.floor(z);
+  const fx = x - ix, fz = z - iz;
+  // Smoothstep
+  const sx = fx * fx * (3 - 2 * fx);
+  const sz = fz * fz * (3 - 2 * fz);
+  const n00 = pseudoNoise(ix, iz);
+  const n10 = pseudoNoise(ix + 1, iz);
+  const n01 = pseudoNoise(ix, iz + 1);
+  const n11 = pseudoNoise(ix + 1, iz + 1);
+  const nx0 = n00 + (n10 - n00) * sx;
+  const nx1 = n01 + (n11 - n01) * sx;
+  return nx0 + (nx1 - nx0) * sz;
+}
+
+function terrainHeight(wx, wz) {
+  // Multi-octave noise for natural-looking terrain
+  let h = 0;
+  h += smoothNoise(wx * 0.1, wz * 0.1) * 1.5;    // broad hills
+  h += smoothNoise(wx * 0.25, wz * 0.25) * 0.6;   // medium bumps
+  h += smoothNoise(wx * 0.6, wz * 0.6) * 0.2;     // fine detail
+  h -= 0.8;  // shift down so most terrain is near y=0
+
+  // Fade to y=0 near edges so terrain meets boundary walls cleanly
+  const edgeFade = 2.5;  // fade within this distance of edge
+  const fadeX = Math.min(wx, TERRAIN_SIZE - wx) / edgeFade;
+  const fadeZ = Math.min(wz, TERRAIN_SIZE - wz) / edgeFade;
+  const fade = Math.min(1, Math.min(Math.max(fadeX, 0), Math.max(fadeZ, 0)));
+  return h * fade;
+}
+
+function createTerrainMesh() {
+  const verts = [];  // x,y,z, u,v
+  const indices = [];
+  const step = TERRAIN_SIZE / TERRAIN_RES;
+
+  for (let iz = 0; iz <= TERRAIN_RES; iz++) {
+    for (let ix = 0; ix <= TERRAIN_RES; ix++) {
+      const wx = ix * step;
+      const wz = iz * step;
+      const wy = terrainHeight(wx, wz);
+      const u = ix / TERRAIN_RES * 8;  // tile texture 8 times
+      const v = iz / TERRAIN_RES * 8;
+      verts.push(wx, wy, wz, u, v);
+    }
+  }
+
+  const w = TERRAIN_RES + 1;
+  for (let iz = 0; iz < TERRAIN_RES; iz++) {
+    for (let ix = 0; ix < TERRAIN_RES; ix++) {
+      const i = iz * w + ix;
+      indices.push(i, i + 1, i + w);
+      indices.push(i + 1, i + w + 1, i + w);
+    }
+  }
+
+  terrainVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+
+  terrainIBO = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIBO);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+  terrainIndexCount = indices.length;
+}
+
+function drawTerrain() {
+  useTexture('grass');
+  // Set model matrix to identity (terrain is already in world space)
+  let m = new Matrix4();
+  gl.uniformMatrix4fv(u_ModelMatrix, false, m.elements);
+  gl.uniform1f(u_TexColorWeight, 1.0);
+  gl.uniform4fv(u_Color, [0.3, 0.6, 0.2, 1.0]);
+
+  // Bind terrain buffers
+  gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
+  const FSIZE = Float32Array.BYTES_PER_ELEMENT;
+  const posLoc = gl.getAttribLocation(program, 'a_Position');
+  const texLoc = gl.getAttribLocation(program, 'a_TexCoord');
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, FSIZE * 5, 0);
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, FSIZE * 5, FSIZE * 3);
+  gl.enableVertexAttribArray(texLoc);
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrainIBO);
+  gl.drawElements(gl.TRIANGLES, terrainIndexCount, gl.UNSIGNED_SHORT, 0);
+}
 
 // ============================================================
 // EGG HUNT MINIGAME
@@ -86,7 +230,7 @@ const eggs = [
   { x: 28.0, z: 28.0, collected: false },   // bottom-right corner
 ];
 
-let eggsRemaining = TOTAL_EGGS;
+let eggsCollected = 0;
 let allEggsFound = false;
 
 function checkEggCollection() {
@@ -101,9 +245,9 @@ function checkEggCollection() {
     const dist = Math.sqrt(dx * dx + dz * dz);
     if (dist < EGG_COLLECT_RADIUS) {
       egg.collected = true;
-      eggsRemaining--;
+      eggsCollected++;
       updateEggHUD();
-      if (eggsRemaining <= 0) {
+      if (eggsCollected >= TOTAL_EGGS) {
         allEggsFound = true;
         showVictoryMessage();
       }
@@ -114,8 +258,8 @@ function checkEggCollection() {
 function updateEggHUD() {
   const el = document.getElementById('eggCounter');
   if (el) {
-    el.textContent = 'Eggs: ' + eggsRemaining + ' / ' + TOTAL_EGGS;
-    if (eggsRemaining <= 0) {
+    el.textContent = 'Eggs: ' + eggsCollected + ' / ' + TOTAL_EGGS;
+    if (eggsCollected >= TOTAL_EGGS) {
       el.style.color = '#0f0';
       el.textContent = 'All eggs found!';
     }
@@ -133,8 +277,9 @@ function showVictoryMessage() {
 
 // Draw a single egg at world position (golden ellipsoid from cubes)
 function drawEgg(ex, ez) {
-  // Egg sits on the ground, bobbing up and down + spinning
-  const bobY = 0.3 + Math.sin(performance.now() / 500 + ex + ez) * 0.15;
+  // Egg sits on the terrain, bobbing up and down + spinning
+  const groundY = terrainHeight(ex, ez);
+  const bobY = groundY + 0.5 + Math.sin(performance.now() / 500 + ex + ez) * 0.15;
   const spin = (performance.now() / 1000 * 60 + ex * 50) % 360;
 
   // Main egg body (tall ellipsoid approximated by a scaled cube)
@@ -534,19 +679,28 @@ function processKeys() {
 }
 
 // ---- Drawing the world ----
-function drawWorld() {
-  // Sky box (large blue cube centered on world)
+function drawWorld(skyCol) {
+  if (!skyCol) skyCol = [0.53, 0.81, 0.92];
+
+  // Sky box (large cube colored to match current sky)
   let skyM = new Matrix4();
   skyM.translate(-50, -50, -50);
   skyM.scale(132, 132, 132);
-  drawCube(skyM, 0.0, [0.53, 0.81, 0.92, 1.0]);
+  drawCube(skyM, 0.0, [skyCol[0], skyCol[1], skyCol[2], 1.0]);
 
-  // Ground plane (flattened cube)
-  useTexture('grass');
-  let groundM = new Matrix4();
-  groundM.translate(0, -0.01, 0);
-  groundM.scale(32, 0.01, 32);
-  drawCube(groundM, 1.0, [0.3, 0.6, 0.2, 1.0]);
+  // Terrain (replaces flat ground plane)
+  drawTerrain();
+
+  // Re-bind cube buffers after terrain drew with its own buffers
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer.vbo);
+  const FSIZE = Float32Array.BYTES_PER_ELEMENT;
+  const posLoc = gl.getAttribLocation(program, 'a_Position');
+  const texLoc = gl.getAttribLocation(program, 'a_TexCoord');
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, FSIZE * 5, 0);
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, FSIZE * 5, FSIZE * 3);
+  gl.enableVertexAttribArray(texLoc);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeBuffer.ibo);
 
   // Draw walls from the map
   useTexture('wall');
@@ -581,15 +735,24 @@ function drawWorld() {
 
   // ---- Draw the peacock animal ----
   // Place it in the back-left corner, facing -Z (same direction player starts looking)
-  drawPeacock(3, 0, 27);
+  drawPeacock(3, 1, 27);
 
   // Switch back to the textured program for any subsequent draws
   gl.useProgram(program);
 }
 
 // ---- Render loop ----
+const PLAYER_EYE_HEIGHT = 2.0;  // height of eyes above terrain
+
 function tick() {
   processKeys();
+
+  // Adjust camera Y to follow terrain
+  const groundY = terrainHeight(camera.eye.elements[0], camera.eye.elements[2]);
+  const targetY = groundY + PLAYER_EYE_HEIGHT;
+  const deltaY = targetY - camera.eye.elements[1];
+  camera.eye.elements[1] += deltaY;
+  camera.at.elements[1]  += deltaY;
 
   // Resize canvas to fill window
   if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
@@ -604,12 +767,21 @@ function tick() {
   // Update peacock animation
   updatePeacockAnimation(1 / 60);
 
+  // Advance day/night cycle
+  dayTime = (dayTime + DAY_CYCLE_SPEED / 60) % 1.0;
+  const skyCol = getSkyColor(dayTime);
+
+  gl.clearColor(skyCol[0], skyCol[1], skyCol[2], 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Set view-projection matrix
+  // Set view-projection matrix + fog/eye uniforms on textured program
   gl.useProgram(program);
   let vpMat = camera.viewProjMatrix();
   gl.uniformMatrix4fv(u_ViewProjMatrix, false, vpMat.elements);
+  gl.uniform3f(u_EyePos, camera.eye.elements[0], camera.eye.elements[1], camera.eye.elements[2]);
+  gl.uniform3f(u_FogColor, skyCol[0], skyCol[1], skyCol[2]);
+  gl.uniform1f(u_FogNear, 20.0);
+  gl.uniform1f(u_FogFar, 50.0);
 
   // Bind the cube VBO/IBO once
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer.vbo);
@@ -622,7 +794,7 @@ function tick() {
   gl.enableVertexAttribArray(a_TexCoord);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeBuffer.ibo);
 
-  drawWorld();
+  drawWorld(skyCol);
 
   // FPS counter
   frameCount++;
@@ -659,6 +831,10 @@ function main() {
   u_Sampler        = gl.getUniformLocation(program, 'u_Sampler');
   u_TexColorWeight = gl.getUniformLocation(program, 'u_TexColorWeight');
   u_Color          = gl.getUniformLocation(program, 'u_Color');
+  u_EyePos         = gl.getUniformLocation(program, 'u_EyePos');
+  u_FogColor       = gl.getUniformLocation(program, 'u_FogColor');
+  u_FogNear        = gl.getUniformLocation(program, 'u_FogNear');
+  u_FogFar         = gl.getUniformLocation(program, 'u_FogFar');
 
   // GL state
   gl.enable(gl.DEPTH_TEST);
@@ -666,6 +842,9 @@ function main() {
 
   // Create cube buffer
   cubeBuffer = createTexturedCubeBuffer();
+
+  // Create terrain mesh
+  createTerrainMesh();
 
   // Create fallback white texture
   createWhiteTexture();
@@ -682,6 +861,10 @@ function main() {
   pu_ViewProjMatrix = gl.getUniformLocation(peacockProgram, 'u_ViewProjMatrix');
   pu_ModelMatrix    = gl.getUniformLocation(peacockProgram, 'u_ModelMatrix');
   pu_Color          = gl.getUniformLocation(peacockProgram, 'u_Color');
+  pu_EyePos         = gl.getUniformLocation(peacockProgram, 'u_EyePos');
+  pu_FogColor       = gl.getUniformLocation(peacockProgram, 'u_FogColor');
+  pu_FogNear        = gl.getUniformLocation(peacockProgram, 'u_FogNear');
+  pu_FogFar         = gl.getUniformLocation(peacockProgram, 'u_FogFar');
 
   // Create peacock geometry buffers
   peacockCubeBuffers = createCenteredCubeBuffers();
@@ -953,10 +1136,15 @@ function updatePeacockAnimation(dt) {
 
 // ---- Draw the full peacock at a world position ----
 function drawPeacock(wx, wy, wz) {
-  // Set shared VP matrix on peacock program
+  // Set shared VP matrix + fog on peacock program
   gl.useProgram(peacockProgram);
   let vpMat = camera.viewProjMatrix();
   gl.uniformMatrix4fv(pu_ViewProjMatrix, false, vpMat.elements);
+  gl.uniform3f(pu_EyePos, camera.eye.elements[0], camera.eye.elements[1], camera.eye.elements[2]);
+  const skyCol = getSkyColor(dayTime);
+  gl.uniform3f(pu_FogColor, skyCol[0], skyCol[1], skyCol[2]);
+  gl.uniform1f(pu_FogNear, 20.0);
+  gl.uniform1f(pu_FogFar, 50.0);
 
   // Colors
   const C_BODY  = [0.5, 0.5, 0.5, 1];
