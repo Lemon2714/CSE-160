@@ -1,0 +1,9 @@
+{
+  "name": "asgn3-virtual-world",
+  "version": "1.0.0",
+  "description": "CSE 160 Assignment 3 - Virtual World with Textured Cubes",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "private": true
+}

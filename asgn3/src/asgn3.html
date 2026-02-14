@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Assignment 3 - Virtual World</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      overflow: hidden;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #info kbd {
+      background: #444;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    #fpsDisplay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #0f0;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 14px;
+      z-index: 10;
+    }
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0.6;
+    }
+    #eggCounter {
+      position: absolute;
+      top: 40px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #ffd700;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      font-size: 16px;
+      font-weight: bold;
+      z-index: 10;
+    }
+    #victoryMsg {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: #ffd700;
+      padding: 20px 40px;
+      border-radius: 12px;
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 20;
+      pointer-events: none;
+      animation: fadeInOut 3s forwards;
+    }
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      15%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <strong>Egg Hunt!</strong> Find all 10 eggs!<br>
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move &nbsp;
+    <kbd>Q</kbd>/<kbd>E</kbd> Turn<br>
+    Mouse to look around<br>
+    Left-click: place block &nbsp; Right-click: remove block
+  </div>
+  <div id="fpsDisplay">FPS: --</div>
+  <div id="eggCounter">Eggs: 10 / 10</div>
+  <div id="victoryMsg">All eggs found!<br>The peacock is celebrating!</div>
+  <div id="crosshair">+</div>
+  <canvas id="glCanvas"></canvas>
+
+  <!-- Matrix library from asgn0 -->
+  <script src="/cuon-matrix-cse160.js"></script>
+  <!-- Main application -->
+  <script src="asgn3.js"></script>
+</body>
+</html>
