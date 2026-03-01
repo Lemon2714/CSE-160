@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Assignment 4 - Lighting</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      overflow: hidden;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #info kbd {
+      background: #444;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    #fpsDisplay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #0f0;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 14px;
+      z-index: 10;
+    }
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0.6;
+    }
+    #eggCounter {
+      position: absolute;
+      top: 40px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #ffd700;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      z-index: 10;
+    }
+    #victoryMsg {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: #ffd700;
+      padding: 20px 40px;
+      border-radius: 12px;
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 20;
+      pointer-events: none;
+      animation: fadeInOut 3s forwards;
+    }
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      15%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.75);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      z-index: 10;
+      max-width: 280px;
+      line-height: 1.7;
+    }
+    #controls h3 {
+      margin: 0 0 6px 0;
+      font-size: 14px;
+      color: #ffd;
+    }
+    #controls button {
+      display: inline-block;
+      margin: 2px 2px;
+      padding: 4px 10px;
+      border: 1px solid #666;
+      border-radius: 4px;
+      background: #333;
+      color: #eee;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #controls button:hover { background: #555; }
+    #controls label {
+      display: block;
+      font-size: 12px;
+      margin: 3px 0;
+    }
+    #controls input[type="range"] {
+      width: 140px;
+      vertical-align: middle;
+    }
+    #controls input[type="checkbox"] {
+      vertical-align: middle;
+    }
+    #controls hr {
+      border: none;
+      border-top: 1px solid #555;
+      margin: 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <strong>Egg Hunt!</strong> Find all 10 eggs!<br>
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move &nbsp;
+    <kbd>Q</kbd>/<kbd>E</kbd> Turn<br>
+    Mouse to look around &middot; Press <kbd>Esc</kbd> for controls
+  </div>
+  <div id="fpsDisplay">FPS: --</div>
+  <div id="eggCounter">Eggs: 0 / 10</div>
+  <div id="victoryMsg">All eggs found!<br>The peacock is celebrating!</div>
+  <div id="crosshair">+</div>
+
+  <div id="controls">
+    <h3>Lighting Controls</h3>
+    <button id="btnLighting">Lighting: ON</button>
+    <button id="btnNormalViz">Normals: OFF</button>
+    <hr>
+    <button id="btnPointLight">Point Light: ON</button>
+    <label>Light X: <input type="range" id="lightX" min="0" max="32" step="0.5" value="16"></label>
+    <label>Light Y: <input type="range" id="lightY" min="1" max="20" step="0.5" value="8"></label>
+    <label>Light Z: <input type="range" id="lightZ" min="0" max="32" step="0.5" value="16"></label>
+    <label><input type="checkbox" id="lightOrbit"> Animate Light Orbit</label>
+    <hr>
+    <button id="btnSpotLight">Spot Light: ON</button>
+    <hr>
+    <label>Camera Angle: <input type="range" id="cameraAngle" min="0" max="360" step="1" value="180"></label>
+  </div>
+
+  <div id="errorOverlay" style="display:none;position:fixed;top:0;left:0;right:0;background:rgba(200,0,0,0.95);color:#fff;font-family:monospace;font-size:13px;padding:12px;z-index:9999;max-height:40vh;overflow:auto;white-space:pre-wrap"></div>
+  <canvas id="glCanvas"></canvas>
+
+  <script>
+    var _errEl = document.getElementById('errorOverlay');
+    window.onerror = function(msg, url, line) {
+      _errEl.style.display = 'block';
+      _errEl.textContent += 'ERROR line ' + line + ': ' + msg + '\n';
+    };
+    var _origErr = console.error;
+    console.error = function() {
+      _errEl.style.display = 'block';
+      _errEl.textContent += 'console.error: ' + Array.from(arguments).join(' ') + '\n';
+      _origErr.apply(console, arguments);
+    };
+  </script>
+  <script src="cuon-matrix-cse160.js"></script>
+  <script src="asgn4.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "asgn4-lighting",
+  "version": "1.0.0",
+  "description": "CSE 160 Assignment 4 - Phong Lighting",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "private": true
+}
