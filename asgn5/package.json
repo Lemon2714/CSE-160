@@ -1,0 +1,9 @@
+{
+  "name": "asgn5-threejs-world",
+  "version": "1.0.0",
+  "description": "CSE 160 Assignment 5 - Three.js 3D World",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "private": true
+}
